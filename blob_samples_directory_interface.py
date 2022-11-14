@@ -42,6 +42,47 @@ def upload_dir(source, dest):
 
             upload_file(file_path, blob_path)
 
+  def download(self, source, dest):
+    '''
+    Download a file or directory to a path on the local filesystem
+    '''
+    if not dest:
+      raise Exception('A destination must be provided')
+
+    blobs = self.ls_files(source, recursive=True)
+    if blobs:
+      # if source is a directory, dest must also be a directory
+      if not source == '' and not source.endswith('/'):
+        source += '/'
+      if not dest.endswith('/'):
+        dest += '/'
+      # append the directory name from source to the destination
+      dest += os.path.basename(os.path.normpath(source)) + '/'
+
+      blobs = [source + blob for blob in blobs]
+      for blob in blobs:
+        blob_dest = dest + os.path.relpath(blob, source)
+        self.download_file(blob, blob_dest)
+    else:
+      self.download_file(source, dest)
+
+  def download_file(self, source, dest):
+    '''
+    Download a single file to a path on the local filesystem
+    '''
+    # dest is a directory if ending with '/' or '.', otherwise it's a file
+    if dest.endswith('.'):
+      dest += '/'
+    blob_dest = dest + os.path.basename(source) if dest.endswith('/') else dest
+
+    print(f'Downloading {source} to {blob_dest}')
+    os.makedirs(os.path.dirname(blob_dest), exist_ok=True)
+    bc = self.client.get_blob_client(blob=source)
+    if not dest.endswith('/'):
+        with open(blob_dest, 'wb') as file:
+          data = bc.download_blob()
+          file.write(data.readall())
+
 try:
 
     dest = '' # dest is the target folder name  
@@ -51,6 +92,8 @@ try:
     client = service_client.get_container_client(container_name)
 
     upload_dir("data", dest)
+    client.download('data', 'data')
+    print(glob.glob('downloads/**', recursive=True))
 
 except Exception as ex:
 
